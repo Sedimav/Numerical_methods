@@ -1,5 +1,4 @@
 import ast
-import html
 import json
 import math
 import operator
@@ -15,7 +14,6 @@ OPERATORS = {ast.Add: operator.add, ast.Sub: operator.sub,
 
 
 def expression(source, variables=("x",), parameters=None):
-    """Read only arithmetic expressions; no eval, attributes or arbitrary calls."""
     tree = ast.parse(str(source), mode="eval").body
     constants = {"pi": math.pi, "e": math.e, **(parameters or {})}
 
@@ -67,7 +65,6 @@ def norm(values):
 
 
 def solve_linear(matrix, rhs):
-    """Gaussian elimination with partial pivoting, arbitrary square size."""
     n = len(rhs)
     if not n or len(matrix) != n or any(len(row) != n for row in matrix):
         raise ValueError("Несовместимые размерности СЛАУ")
@@ -111,51 +108,28 @@ def solve_tridiagonal(lower, diagonal, upper, rhs):
 
 
 def plot_svg(path, title, series, xlabel="x", ylabel="y"):
-    """Series: (label, points[, style]); style supports scatter, dash and vertical."""
+    from matplotlib.figure import Figure
+
     series = [(item[0], item[1], item[2] if len(item) == 3 else {}) for item in series]
     points = [p for _, line, _ in series for p in line]
     if not points or not all(math.isfinite(v) for p in points for v in p):
         raise ValueError("Неверные данные графика")
-    xmin, xmax = min(p[0] for p in points), max(p[0] for p in points)
-    ymin, ymax = min(p[1] for p in points), max(p[1] for p in points)
-    dx, dy = xmax - xmin or 1.0, ymax - ymin or 1.0
-    ymin, ymax = ymin - .06 * dy, ymax + .06 * dy
-    def px(x):
-        return 90 + 760 * (x - xmin) / dx
-    def py(y):
-        return 430 - 340 * (y - ymin) / (ymax - ymin)
-    height = max(570, 520 + 22 * len(series))
-    parts = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 {height}">',
-             f'<rect width="920" height="{height}" fill="white"/>',
-             '<g font-family="Arial,sans-serif" font-size="13" fill="#222">',
-             '<text x="90" y="32" font-size="19">' + html.escape(title) + '</text>']
-    for i in range(6):
-        x, y = xmin + dx * i / 5, ymin + (ymax - ymin) * i / 5
-        parts.append(f'<path d="M {px(x):.2f} 90 V 430 M 90 {py(y):.2f} H 850" stroke="#ddd"/>')
-        parts.append(f'<text x="{px(x):.2f}" y="452" text-anchor="middle">{x:.5g}</text>')
-        parts.append(f'<text x="80" y="{py(y)+4:.2f}" text-anchor="end">{y:.5g}</text>')
-    if ymin <= 0 <= ymax:
-        parts.append(f'<path d="M 90 {py(0):.2f} H 850" stroke="#888"/>')
-    colors = ["#12766d", "#b52e49", "#435ec4", "#a26718", "#555"]
-    for i, (label, line, style) in enumerate(series):
-        color = colors[i % len(colors)]
-        coords = " ".join(f"{px(x):.2f},{py(y):.2f}" for x, y in line)
-        dash = ' stroke-dasharray="8 5"' if style.get("dash") else ""
-        if not style.get("scatter"):
-            parts.append(f'<polyline points="{coords}" fill="none" stroke="{color}" stroke-width="2"{dash}/>')
+
+    figure = Figure(figsize=(9, 6))
+    axes = figure.subplots()
+    for label, points, style in series:
+        x, y = zip(*points)
+        linestyle = "none" if style.get("scatter") else "--" if style.get("dash") else "-"
+        marker = "o" if style.get("scatter") or len(points) < 30 else None
+        curve, = axes.plot(x, y, label=label, linestyle=linestyle, marker=marker)
         if style.get("vertical"):
-            parts.extend(f'<path d="M {px(x):.2f} 90 V 430" stroke="{color}" stroke-dasharray="3 5"/>' for x,_ in line)
-        if style.get("scatter") or len(line) < 30:
-            parts.extend(f'<circle cx="{px(x):.2f}" cy="{py(y):.2f}" r="4" fill="{color}" stroke="white"/>' for x,y in line)
-        legend_y = 495 + 22*i
-        if style.get("scatter"):
-            parts.append(f'<circle cx="102" cy="{legend_y-4}" r="4" fill="{color}"/>')
-        else:
-            parts.append(f'<path d="M 90 {legend_y-4} H 114" stroke="{color}" stroke-width="2"{dash}/>')
-        parts.append(f'<text x="125" y="{legend_y}" fill="{color}">{html.escape(label)}</text>')
-    parts.extend([f'<text x="875" y="474" text-anchor="end">{html.escape(xlabel)}</text>',
-                  f'<text x="15" y="65">{html.escape(ylabel)}</text>', '</g></svg>'])
-    Path(path).write_text("\n".join(parts), encoding="utf-8")
+            for value in x:
+                axes.axvline(value, color=curve.get_color(), linestyle=":")
+    axes.set(title=title, xlabel=xlabel, ylabel=ylabel)
+    axes.grid(True, alpha=0.3)
+    axes.legend(loc="upper center", bbox_to_anchor=(0.5, -0.15))
+    figure.tight_layout()
+    figure.savefig(path)
 
 
 def sample(function, a, b, count=301):

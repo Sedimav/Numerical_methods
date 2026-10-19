@@ -1,0 +1,13 @@
+{
+  "variant": 14,
+  "function": "1/(x**4+16)",
+  "interval": [
+    0,
+    2
+  ],
+  "steps": [
+    0.5,
+    0.25
+  ],
+  "primitive": "log((x**2+2*sqrt(2)*x+4)/(x**2-2*sqrt(2)*x+4))/(32*sqrt(2))+(atan(x/sqrt(2)+1)+atan(x/sqrt(2)-1))/(16*sqrt(2))"
+}
